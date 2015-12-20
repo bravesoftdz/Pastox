@@ -831,6 +831,357 @@ function tox_friend_get_last_online(tox: TTox; friend_number: uint32;
                            error: PTOX_ERR_FRIEND_GET_LAST_ONLINE): cuint64;
                                                                     TOXFUNC;
 
+{******************************************************************************
+ *
+ * :: Friend-specific state queries (can also be received through callbacks)
+ *
+ ******************************************************************************}
+{*
+ * Common error codes for friend state query functions.
+ *}
+type
+  TOX_ERR_FRIEND_QUERY =
+  (
+    {*
+     * The function returned successfully.
+     *}
+    TOX_ERR_FRIEND_QUERY_OK,
+    {*
+     * The pointer parameter for storing the query result (name, message) was
+     * NULL. Unlike the `_self_` variants of these functions, which have no effect
+     * when a parameter is NULL, these functions return an error in that case.
+     *}
+    TOX_ERR_FRIEND_QUERY_NULL,
+    {*
+     * The friend_number did not designate a valid friend.
+     *}
+    TOX_ERR_FRIEND_QUERY_FRIEND_NOT_FOUND
+  );
+  PTOX_ERR_FRIEND_QUERY = ^TOX_ERR_FRIEND_QUERY;
+
+{*
+ * Return the length of the friend's name. If the friend number is invalid, the
+ * return value is unspecified.
+ *
+ * The return value is equal to the `length` argument received by the last
+ * `friend_name` callback.
+ *}
+
+function tox_friend_get_name_size(tox: TTox; friend_number: cuint32; error: PTOX_ERR_FRIEND_QUERY): csize_t; TOXFUNC;
+
+{*
+ * Write the name of the friend designated by the given friend number to a byte
+ * array.
+ *
+ * Call tox_friend_get_name_size to determine the allocation size for the `name`
+ * parameter.
+ *
+ * The data written to `name` is equal to the data received by the last
+ * `friend_name` callback.
+ *
+ * @param name A valid memory region large enough to store the friend's name.
+ *
+ * @return true on success.
+ *}
+function tox_friend_get_name(tox: TTox; friend_number: cuint32;
+                             name: pcuint8; error: PTOX_ERR_FRIEND_QUERY)
+                                            : cbool; TOXFUNC;
+
+{*
+ * CALLBACK
+ *
+ * @param FriendNumber The friend number of the friend whose name changed.
+ * @param Name A byte array containing the same data as
+ *   tox_friend_get_name would write to its `name` parameter.
+ * @param Length A value equal to the return value of
+ *   tox_friend_get_name_size.
+ *}
+type
+  TProcFriendName = procedure(Tox: TTox; FriendNumber: cuint32; Name: pcuint8;
+                              Length: csize_t;
+                              UserData: Pointer); cdecl;
+
+{*
+ * Set the callback for the `friend_name` event. Pass NULL to unset.
+ *
+ * This event is triggered when a friend changes their name.
+ *}
+procedure tox_callback_friend_name(tox: TTox; callback: TProcFriendName;
+                                   user_data: Pointer); TOXFUNC;
+
+{*
+ * Return the length of the friend's status message. If the friend number is
+ * invalid, the return value is SIZE_MAX.
+ *}
+function tox_friend_get_status_message_size(tox: TTox; friend_number: cuint32;
+                                            error: PTOX_ERR_FRIEND_QUERY):
+                                            csize_t; TOXFUNC;
+
+{*
+ * Write the status message of the friend designated by the given friend number
+ * to a byte array.
+ *
+ * Call tox_friend_get_status_message_size to determine the allocation size for
+ * the `status_name` parameter.
+ *
+ * The data written to `status_message` is equal to the data received by the
+ * last `FriendStatusMsg` callback.
+ *
+ * @param status_message A valid memory region large enough to store the
+ *   friend's status message.
+ *}
+function tox_friend_get_status_message(tox: TTox; friend_number: cuint32;
+                                       status_message: pcuint8;
+                                       error: PTOX_ERR_FRIEND_QUERY): cbool;
+                                                                      TOXFUNC;
+
+{*
+ * CALLBACK
+ *
+ * @param FriendNumber The friend number of the friend whose status message
+ *   changed.
+ * @param message A byte array containing the same data as
+ *   tox_friend_get_status_message would write to its `status_message` parameter.
+ * @param length A value equal to the return value of
+ *   tox_friend_get_status_message_size.
+ *}
+type
+  TProcFriendStatusMsg = procedure(Tox: TTox; FriendNumber: cuint32;
+                                   Message: pcuint8; Length: csize_t;
+                                   UserData: Pointer); cdecl;
+
+{*
+ * Set the callback for the `friend_status_message` event. Pass NULL to unset.
+ *
+ * This event is triggered when a friend changes their status message.
+ *}
+procedure tox_callback_friend_status_message(tox: TTox;
+                                             callback: TProcFriendStatusMsg;
+                                             user_data: Pointer); TOXFUNC;
+
+{*
+ * Return the friend's user status (away/busy/...). If the friend number is
+ * invalid, the return value is unspecified.
+ *
+ * The status returned is equal to the last status received through the
+ * `friend_status` callback.
+ *}
+function tox_friend_get_status(tox: TTox; friend_number: cuint32;
+                               error: PTOX_ERR_FRIEND_QUERY): TOX_USER_STATUS;
+                                                              TOXFUNC;
+
+{*
+ * CALLBACK
+ *
+ * @param friend_number The friend number of the friend whose user status
+ *   changed.
+ * @param status The new user status.
+ *}
+type
+  TProcFriendStatus = procedure(Tox: TTox; FriendNumber: cuint32;
+                                   Status: TOX_USER_STATUS;
+                                   UserData: Pointer); cdecl;
+
+{*
+ * Set the callback for the `friend_status` event. Pass NULL to unset.
+ *
+ * This event is triggered when a friend changes their user status.
+ *}
+procedure tox_callback_friend_status(tox: TTox;
+                                     callback: TProcFriendStatus;
+                                     user_data: Pointer); TOXFUNC;
+
+{*
+ * Check whether a friend is currently connected to this client.
+ *
+ * The result of this function is equal to the last value received by the
+ * `friend_connection_status` callback.
+ *
+ * @param friend_number The friend number for which to query the connection
+ *   status.
+ *
+ * @return the friend's connection status as it was received through the
+ *   `friend_connection_status` event.
+ *}
+function tox_friend_get_connection_status(tox: TTox;
+                                          friend_number: cuint32;
+                                          error: PTOX_ERR_FRIEND_QUERY)
+                                            : TOX_CONNECTION; TOXFUNC;
+
+{*
+ * @param friend_number The friend number of the friend whose connection status
+ *   changed.
+ * @param connection_status The result of calling
+ *   tox_friend_get_connection_status on the passed friend_number.
+ *}
+type
+  TProcFriendConnStatus = procedure(Tox: TTox; FriendNumber: cuint32;
+                                    ConnectionStatus: TOX_CONNECTION;
+                                    UserData: Pointer); cdecl;
+
+{*
+ * Set the callback for the `friend_connection_status` event. Pass NULL to unset.
+ *
+ * This event is triggered when a friend goes offline after having been online,
+ * or when a friend goes online.
+ *
+ * This callback is not called when adding friends. It is assumed that when
+ * adding friends, their connection status is initially offline.
+ *}
+procedure tox_callback_friend_connection_status(tox: TTox;
+                                                callback: TProcFriendConnStatus;
+                                                user_data: Pointer); TOXFUNC;
+
+{*
+ * Check whether a friend is currently typing a message.
+ *
+ * @param friend_number The friend number for which to query the typing status.
+ *
+ * @return true if the friend is typing.
+ * @return false if the friend is not typing, or the friend number was
+ *   invalid. Inspect the error code to determine which case it is.
+  *}
+function tox_friend_get_typing(tox: TTox; friend_number: cuint32;
+                               error: PTOX_ERR_FRIEND_QUERY): cbool; TOXFUNC;
+
+{*
+ * @param FriendNumber The friend number of the friend who started or stopped
+ *   typing.
+ * @param IsTyping The result of calling tox_friend_get_typing on the passed
+ *   friend_number.
+ *}
+type
+  TProcFriendTyping = procedure(Tox: TTox; FriendNumber: cuint32;
+                                IsTyping: cbool; UserData: Pointer); cdecl;
+
+{*
+ * Set the callback for the `friend_typing` event. Pass NULL to unset.
+ *
+ * This event is triggered when a friend starts or stops typing.
+ *}
+procedure tox_callback_friend_typing(tox: TTox; callback: TProcFriendTyping;
+                                     user_data: Pointer); TOXFUNC;
+
+{******************************************************************************
+ *
+ * :: Sending private messages
+ *
+ ******************************************************************************}
+type
+  TOX_ERR_SET_TYPING =
+  (
+      {**
+       * The function returned successfully.
+       *}
+      TOX_ERR_SET_TYPING_OK,
+      {**
+       * The friend number did not designate a valid friend.
+       *}
+      TOX_ERR_SET_TYPING_FRIEND_NOT_FOUND
+  );
+  PTOX_ERR_SET_TYPING = ^TOX_ERR_SET_TYPING;
+
+{**
+ * Set the client's typing status for a friend.
+ *
+ * The client is responsible for turning it on or off.
+ *
+ * @param friend_number The friend to which the client is typing a message.
+ * @param typing The typing status. True means the client is typing.
+ *
+ * @return true on success.
+ *}
+function tox_self_set_typing(tox: TTox; friend_number: cuint32; typing: cbool;
+                             error: PTOX_ERR_SET_TYPING): cbool; TOXFUNC;
+
+type
+  TOX_ERR_FRIEND_SEND_MESSAGE =
+  (
+      {**
+       * The function returned successfully.
+       *}
+      TOX_ERR_FRIEND_SEND_MESSAGE_OK,
+      {**
+       * One of the arguments to the function was NULL when it was not expected.
+       *}
+      TOX_ERR_FRIEND_SEND_MESSAGE_NULL,
+      {**
+       * The friend number did not designate a valid friend.
+       *}
+      TOX_ERR_FRIEND_SEND_MESSAGE_FRIEND_NOT_FOUND,
+      {**
+       * This client is currently not connected to the friend.
+       *}
+      TOX_ERR_FRIEND_SEND_MESSAGE_FRIEND_NOT_CONNECTED,
+      {**
+       * An allocation error occurred while increasing the send queue size.
+       *}
+      TOX_ERR_FRIEND_SEND_MESSAGE_SENDQ,
+      {**
+       * Message length exceeded TOX_MAX_MESSAGE_LENGTH.
+       *}
+      TOX_ERR_FRIEND_SEND_MESSAGE_TOO_LONG,
+      {**
+       * Attempted to send a zero-length message.
+       *}
+      TOX_ERR_FRIEND_SEND_MESSAGE_EMPTY
+  );
+  PTOX_ERR_FRIEND_SEND_MESSAGE = ^TOX_ERR_FRIEND_SEND_MESSAGE;
+
+
+{**
+ * Send a text chat message to an online friend.
+ *
+ * This function creates a chat message packet and pushes it into the send
+ * queue.
+ *
+ * The message length may not exceed TOX_MAX_MESSAGE_LENGTH. Larger messages
+ * must be split by the client and sent as separate messages. Other clients can
+ * then reassemble the fragments. Messages may not be empty.
+ *
+ * The return value of this function is the message ID. If a read receipt is
+ * received, the triggered `friend_read_receipt` event will be passed this
+ * message ID.
+ *
+ * Message IDs are unique per friend. The first message ID is 0. Message IDs are
+ * incremented by 1 each time a message is sent. If UINT32_MAX messages were
+ * sent, the next message ID is 0.
+ *
+ * @param type Message type (normal, action, ...).
+ * @param friend_number The friend number of the friend to send the message to.
+ * @param message A non-NULL pointer to the first element of a byte array
+ *   containing the message text.
+ * @param length Length of the message to be sent.
+ *}
+function tox_friend_send_message(tox: TTox; friend_number: cuint32;
+                                 msgtype: TOX_MESSAGE_TYPE; message: pcuint8;
+                                 length: csize_t;
+                                 error: PTOX_ERR_FRIEND_SEND_MESSAGE)
+                                            : cuint32; TOXFUNC;
+
+{**
+ * CALLBACK
+ *
+ * @param FriendNumber The friend number of the friend who received the message.
+ * @param MessageID The message ID as returned from tox_friend_send_message
+ *   corresponding to the message sent.
+ *}
+
+type
+  TProcFriendReadReceipt = procedure(Tox: TTox; FriendNumber: cuint32;
+                                     MessageID: cuint32;
+                                     UserData: Pointer); cdecl;
+
+{**
+ * Set the callback for the `friend_read_receipt` event. Pass NULL to unset.
+ *
+ * This event is triggered when the friend receives the message sent with
+ * tox_friend_send_message with the corresponding message ID.
+ *}
+procedure tox_callback_friend_read_receipt(tox: TTox;
+                                           callback: TProcFriendReadReceipt;
+                                           user_data: Pointer); TOXFUNC;
+
 implementation
 
 end.
