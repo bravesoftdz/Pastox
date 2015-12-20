@@ -27,10 +27,13 @@
         <FormatVersion Value="1"/>
       </local>
     </RunParams>
-    <RequiredPackages Count="1">
+    <RequiredPackages Count="2">
       <Item1>
-        <PackageName Value="LCL"/>
+        <PackageName Value="Lox"/>
       </Item1>
+      <Item2>
+        <PackageName Value="LCL"/>
+      </Item2>
     </RequiredPackages>
     <Units Count="3">
       <Unit0>
@@ -46,7 +49,7 @@
         <UnitName Value="Unit1"/>
       </Unit1>
       <Unit2>
-        <Filename Value="Locktox/toxcore.pas"/>
+        <Filename Value="Locktox/ctoxcore.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="ToxCore"/>
       </Unit2>
