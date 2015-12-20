@@ -1,6 +1,8 @@
 unit ToxCore;
 
+{$macro on}
 {$mode objfpc}{$H+}
+{$DEFINE TOXFUNC:=cdecl; external LIBTOXCORE}
 
 interface
 
@@ -129,7 +131,6 @@ type
       TOX_MESSAGE_TYPE_ACTION
   );
 
-type
   {****************************************************************************
    *
    * :: Startup options
@@ -178,7 +179,6 @@ type
       TOX_SAVEDATA_TYPE_SECRET_KEY
   );
 
-type
  {**
   * This struct contains all the startup options for Tox. You can either allocate
   * this object yourself, and pass it to tox_options_default, or call
@@ -194,7 +194,6 @@ type
     savedata_data              : pcuint8;
     savedata_length            : csize_t;
   end;
-
   PTox_Options = ^Tox_Options;
 
  {**
@@ -209,8 +208,7 @@ type
  * @param options An options object to be filled with default options.
  *}
 
-procedure tox_options_default (options: PTox_Options); cdecl;
-                                                       external LIBTOXCORE;
+procedure tox_options_default (options: PTox_Options); TOXFUNC;
 {**
  * Allocates a new Tox_Options object and initialises it with the default
  * options. This function can be used to preserve long term ABI compatibility by
@@ -221,15 +219,14 @@ procedure tox_options_default (options: PTox_Options); cdecl;
  *
  * @return A new Tox_Options object with default options or NULL on failure.
  *}
-function tox_options_new(error: coff_t = 0) : PTox_Options; cdecl;
-                                                            external LIBTOXCORE;
+function tox_options_new(error: coff_t = 0): PTox_Options; TOXFUNC;
 {**
  * Releases all resources associated with an options objects.
  *
  * Passing a pointer that was not returned by tox_options_new results in
  * undefined behaviour.
  *}
-procedure tox_options_free(options: PTox_Options); cdecl; external LIBTOXCORE;
+procedure tox_options_free(options: PTox_Options); TOXFUNC;
 
 type
   {****************************************************************************
@@ -251,7 +248,6 @@ type
       TOX_ERR_NEW_LOAD_ENCRYPTED,
       TOX_ERR_NEW_LOAD_BAD_FORMAT
   );
-
   PTOX_ERR_NEW = ^TOX_ERR_NEW;
 
 {**
@@ -270,9 +266,8 @@ type
  *
  * @return A new Tox instance pointer on success or NULL on failure.
  *}
-function tox_new(options: PTox_Options; error: PTOX_ERR_NEW) : TTox;
-                                                            cdecl;
-                                                            external LIBTOXCORE;
+function tox_new(options: PTox_Options; error: PTOX_ERR_NEW): TTox;
+                                                            TOXFUNC;
 
 {**
  * Releases all resources associated with the Tox instance and disconnects from
@@ -281,7 +276,318 @@ function tox_new(options: PTox_Options; error: PTOX_ERR_NEW) : TTox;
  * After calling this function, the Tox pointer becomes invalid. No other
  * functions can be called, and the pointer value can no longer be read.
  *}
-procedure tox_kill(tox: TTox); cdecl; external LIBTOXCORE;
+procedure tox_kill(tox: TTox); TOXFUNC;
+
+{**
+ * Calculates the number of bytes required to store the tox instance with
+ * tox_get_savedata. This function cannot fail. The result is always greater
+ * than 0.
+ *
+ * @see threading for concurrency implications.
+ *}
+function tox_get_savedata_size(tox: TTOX): csize_t; TOXFUNC;
+
+{**
+ * Store all information associated with the tox instance to a byte array.
+ *
+ * @param data A memory region large enough to store the tox instance data.
+ *   Call tox_get_savedata_size to find the number of bytes required. If this
+ *   parameter is NULL, this function has no effect.
+ *}
+procedure tox_get_savedata(tox: TTox; savedata: pcuint8); TOXFUNC;
+
+{******************************************************************************
+ *
+ * :: Connection lifecycle and event loop
+ *
+ ******************************************************************************}
+
+type
+  TOX_ERR_BOOTSTRAP =
+  (
+      {**
+       * The function returned successfully.
+       *}
+      TOX_ERR_BOOTSTRAP_OK,
+
+      {**
+       * One of the arguments to the function was NULL when it was not expected.
+       *}
+      TOX_ERR_BOOTSTRAP_NULL,
+
+      {**
+       * The address could not be resolved to an IP address, or the IP address
+       * passed was invalid.
+       *}
+      TOX_ERR_BOOTSTRAP_BAD_HOST,
+
+      {**
+       * The port passed was invalid. The valid port range is (1, 65535).
+       *}
+      TOX_ERR_BOOTSTRAP_BAD_PORT
+  );
+  PTOX_ERR_BOOTSTRAP = ^TOX_ERR_BOOTSTRAP;
+
+{**
+ * Sends a "get nodes" request to the given bootstrap node with IP, port, and
+ * public key to setup connections.
+ *
+ * This function will attempt to connect to the node using UDP. You must use
+ * this function even if Tox_Options.udp_enabled was set to false.
+ *
+ * @param address The hostname or IP address (IPv4 or IPv6) of the node.
+ * @param port The port on the host on which the bootstrap Tox instance is
+ *   listening.
+ * @param public_key The long term public key of the bootstrap node
+ *   (TOX_PUBLIC_KEY_SIZE bytes).
+ * @return true on success.
+ *}
+function tox_bootstrap(tox: TTox; address: pcchar; port: cuint16;
+                       public_key: pcuint8; error: TOX_ERR_BOOTSTRAP): cbool;
+                                                                       TOXFUNC;
+
+{**
+ * Adds additional host:port pair as TCP relay.
+ *
+ * This function can be used to initiate TCP connections to different ports on
+ * the same bootstrap node, or to add TCP relays without using them as
+ * bootstrap nodes.
+ *
+ * @param address The hostname or IP address (IPv4 or IPv6) of the TCP relay.
+ * @param port The port on the host on which the TCP relay is listening.
+ * @param public_key The long term public key of the TCP relay
+ *   (TOX_PUBLIC_KEY_SIZE bytes).
+ * @return true on success.
+ *}
+function tox_add_tcp_relay(tox: TTox; address: pcchar; port: cuint16;
+                           public_key: pcuint8;
+                           error: PTOX_ERR_BOOTSTRAP): cbool; TOXFUNC;
+
+{**
+ * Protocols that can be used to connect to the network or friends.
+ *}
+type
+  TOX_CONNECTION =
+  (
+      {**
+       * There is no connection. This instance, or the friend the state change is
+       * about, is now offline.
+       *}
+      TOX_CONNECTION_NONE,
+
+      {**
+       * A TCP connection has been established. For the own instance, this means it
+       * is connected through a TCP relay, only. For a friend, this means that the
+       * connection to that particular friend goes through a TCP relay.
+       *}
+      TOX_CONNECTION_TCP,
+
+      {**
+       * A UDP connection has been established. For the own instance, this means it
+       * is able to send UDP packets to DHT nodes, but may still be connected to
+       * a TCP relay. For a friend, this means that the connection to that
+       * particular friend was built using direct UDP packets.
+       *}
+      TOX_CONNECTION_UDP
+  );
+
+{**
+ * Return whether we are connected to the DHT. The return value is equal to the
+ * last value received through the `self_connection_status` callback.
+ *}
+function tox_self_get_connection_status(tox: TTox): TOX_CONNECTION; TOXFUNC;
+
+{**
+ * @param ConnectionStatus Whether we are connected to the DHT.
+ *}
+type
+  TProcSelfConnectionStatus = procedure(Tox: TTox; ConnectionStatus: TOX_CONNECTION; UserData: Pointer); cdecl;
+
+{**
+ * Set the callback for the `self_connection_status` event. Pass NULL to unset.
+ *
+ * This event is triggered whenever there is a change in the DHT connection
+ * state. When disconnected, a client may choose to call tox_bootstrap again, to
+ * reconnect to the DHT. Note that this state may frequently change for short
+ * amounts of time. Clients should therefore not immediately bootstrap on
+ * receiving a disconnect.
+ *
+ * TODO: how long should a client wait before bootstrapping again?
+ *}
+procedure tox_callback_self_connection_status(tox: TTox; callback: TProcSelfConnectionStatus; user_data: Pointer); TOXFUNC;
+
+{**
+ * Return the time in milliseconds before tox_iterate() should be called again
+ * for optimal performance.
+ *}
+function tox_iteration_interval(tox: TTox): cuint32; TOXFUNC;
+
+{**
+ * The main loop that needs to be run in intervals of tox_iteration_interval()
+ * milliseconds.
+ *}
+procedure tox_iterate(tox: TTox); TOXFUNC;
+
+{*******************************************************************************
+ *
+ * :: Internal client information (Tox address/id)
+ *
+ ******************************************************************************}
+
+{**
+ * Writes the Tox friend address of the client to a byte array. The address is
+ * not in human-readable format. If a client wants to display the address,
+ * formatting is required.
+ *
+ * @param address A memory region of at least TOX_ADDRESS_SIZE bytes. If this
+ *   parameter is NULL, this function has no effect.
+ * @see TOX_ADDRESS_SIZE for the address format.
+ *}
+procedure tox_self_get_address(tox: TTox; address: pcuint8); TOXFUNC;
+
+{**
+ * Set the 4-byte nospam part of the address.
+ *
+ * @param nospam Any 32 bit unsigned integer.
+ *}
+procedure tox_self_set_nospam(tox: TTox; nospam: cuint32); TOXFUNC;
+
+{**
+ * Get the 4-byte nospam part of the address.
+ *}
+function tox_self_get_nospam(tox: TTox): cuint32; TOXFUNC;
+
+{**
+ * Copy the Tox Public Key (long term) from the Tox object.
+ *
+ * @param public_key A memory region of at least TOX_PUBLIC_KEY_SIZE bytes. If
+ *   this parameter is NULL, this function has no effect.
+ *}
+procedure tox_self_get_public_key(tox: TTox; public_key: pcuint8); TOXFUNC;
+
+{**
+ * Copy the Tox Secret Key from the Tox object.
+ *
+ * @param secret_key A memory region of at least TOX_SECRET_KEY_SIZE bytes. If
+ *   this parameter is NULL, this function has no effect.
+ *}
+procedure tox_self_get_secret_key(tox: TTox; secret_key: pcuint8); TOXFUNC;
+
+{*******************************************************************************
+ *
+ * :: User-visible client information (nickname/status)
+ *
+ ******************************************************************************}
+
+type
+  {**
+   * Common error codes for all functions that set a piece of user-visible
+   * client information.
+   *}
+  TOX_ERR_SET_INFO =
+  (
+      {**
+       * The function returned successfully.
+      *}
+      TOX_ERR_SET_INFO_OK,
+
+      {**
+       * One of the arguments to the function was NULL when it was not expected.
+      *}
+      TOX_ERR_SET_INFO_NULL,
+
+      {**
+       * Information length exceeded maximum permissible size.
+      *}
+      TOX_ERR_SET_INFO_TOO_LONG
+  );
+  PTOX_ERR_SET_INFO = ^TOX_ERR_SET_INFO;
+
+{**
+ * Set the nickname for the Tox client.
+ *
+ * Nickname length cannot exceed TOX_MAX_NAME_LENGTH. If length is 0, the name
+ * parameter is ignored (it can be NULL), and the nickname is set back to empty.
+ *
+ * @param name A byte array containing the new nickname.
+ * @param length The size of the name byte array.
+ *
+ * @return true on success.
+ *}
+function tox_self_set_name(tox: TTox; name: pcuint8; length: csize_t;
+                           error: PTOX_ERR_SET_INFO): cbool; TOXFUNC;
+
+{**
+ * Return the length of the current nickname as passed to tox_self_set_name.
+ *
+ * If no nickname was set before calling this function, the name is empty,
+ * and this function returns 0.
+ *
+ * @see threading for concurrency implications.
+ *}
+function tox_self_get_name_size(tox: TTox): csize_t; TOXFUNC;
+
+{**
+ * Write the nickname set by tox_self_set_name to a byte array.
+ *
+ * If no nickname was set before calling this function, the name is empty,
+ * and this function has no effect.
+ *
+ * Call tox_self_get_name_size to find out how much memory to allocate for
+ * the result.
+ *
+ * @param name A valid memory location large enough to hold the nickname.
+ *   If this parameter is NULL, the function has no effect.
+ *}
+procedure tox_self_get_name(tox: TTox; name: pcuint8); TOXFUNC;
+
+{**
+ * Set the client's status message.
+ *
+ * Status message length cannot exceed TOX_MAX_STATUS_MESSAGE_LENGTH. If
+ * length is 0, the status parameter is ignored (it can be NULL), and the
+ * user status is set back to empty.
+ *}
+function tox_self_set_status_message(tox: TTox; message: pcuint8;
+                           length: csize_t;
+                           error: PTOX_ERR_SET_INFO): cbool; TOXFUNC;
+
+{**
+ * Return the length of the current status message as passed to tox_self_set_status_message.
+ *
+ * If no status message was set before calling this function, the status
+ * is empty, and this function returns 0.
+ *
+ * @see threading for concurrency implications.
+ *}
+function tox_self_get_status_message_size(tox: TTox): csize_t; TOXFUNC;
+
+{**
+ * Write the status message set by tox_self_set_status_message to a byte array.
+ *
+ * If no status message was set before calling this function, the status is
+ * empty, and this function has no effect.
+ *
+ * Call tox_self_get_status_message_size to find out how much memory to allocate
+ * for the result.
+ *
+ * @param status A valid memory location large enough to hold the status message.
+ *   If this parameter is NULL, the function has no effect.
+ *}
+procedure tox_self_get_status_message(tox: TTox; status_message: pcuint8);
+                                                                 TOXFUNC;
+
+{**
+ * Set the client's user status.
+ *
+ * @param user_status One of the user statuses listed in the enumeration above.
+ *}
+procedure tox_self_set_status(tox: TTox; status: TOX_USER_STATUS); TOXFUNC;
+
+{**
+ * Returns the client's user status.
+ *}
+function tox_self_get_status(tox: TTox): TOX_USER_STATUS; TOXFUNC;
 
 implementation
 
