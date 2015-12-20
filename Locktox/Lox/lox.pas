@@ -7,7 +7,7 @@ unit Lox;
 interface
 
 uses
-  LazarusPackageIntf;
+  Sodium, LazarusPackageIntf;
 
 implementation
 
