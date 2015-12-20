@@ -589,6 +589,248 @@ procedure tox_self_set_status(tox: TTox; status: TOX_USER_STATUS); TOXFUNC;
  *}
 function tox_self_get_status(tox: TTox): TOX_USER_STATUS; TOXFUNC;
 
+{******************************************************************************
+ *
+ * :: Friend list management
+ *
+ ***************************************************************************** }
+
+type
+  TOX_ERR_FRIEND_ADD =
+  (
+      {*
+       * The function returned successfully.
+       *}
+      TOX_ERR_FRIEND_ADD_OK,
+      {*
+       * One of the arguments to the function was NULL when it was not expected.
+       *}
+      TOX_ERR_FRIEND_ADD_NULL,
+      {*
+       * The length of the friend request message exceeded
+       * TOX_MAX_FRIEND_REQUEST_LENGTH.
+       *}
+      TOX_ERR_FRIEND_ADD_TOO_LONG,
+      {*
+       * The friend request message was empty. This, and the TOO_LONG code will
+       * never be returned from tox_friend_add_norequest.
+       *}
+      TOX_ERR_FRIEND_ADD_NO_MESSAGE,
+      {*
+       * The friend address belongs to the sending client.
+       *}
+      TOX_ERR_FRIEND_ADD_OWN_KEY,
+      {*
+       * A friend request has already been sent, or the address belongs to a friend
+       * that is already on the friend list.
+       *}
+      TOX_ERR_FRIEND_ADD_ALREADY_SENT,
+      {*
+       * The friend address checksum failed.
+       *}
+      TOX_ERR_FRIEND_ADD_BAD_CHECKSUM,
+      {*
+       * The friend was already there, but the nospam value was different.
+       *}
+      TOX_ERR_FRIEND_ADD_SET_NEW_NOSPAM,
+      {*
+       * A memory allocation failed when trying to increase the friend list size.
+       *}
+      TOX_ERR_FRIEND_ADD_MALLOC
+  );
+  PTOX_ERR_FRIEND_ADD = ^TOX_ERR_FRIEND_ADD;
+
+{**
+ * Add a friend to the friend list and send a friend request.
+ *
+ * A friend request message must be at least 1 byte long and at most
+ * TOX_MAX_FRIEND_REQUEST_LENGTH.
+ *
+ * Friend numbers are unique identifiers used in all functions that operate on
+ * friends. Once added, a friend number is stable for the lifetime of the Tox
+ * object. After saving the state and reloading it, the friend numbers may not
+ * be the same as before. Deleting a friend creates a gap in the friend number
+ * set, which is filled by the next adding of a friend. Any pattern in friend
+ * numbers should not be relied on.
+ *
+ * If more than INT32_MAX friends are added, this function causes undefined
+ * behaviour.
+ *
+ * @param address The address of the friend (returned by tox_self_get_address of
+ * the friend you wish to add) it must be TOX_ADDRESS_SIZE bytes.
+ * @param message The message that will be sent along with the friend request.
+ * @param length The length of the data byte array.
+ *
+ * @return the friend number on success, UINT32_MAX on failure.
+ *}
+
+function tox_friend_add(tox: TTox; address: pcuint8; message: pcuint8;
+                           length: csize_t;
+                           error: PTOX_ERR_FRIEND_ADD): cuint32; TOXFUNC;
+
+{**
+ * Add a friend without sending a friend request.
+ *
+ * This function is used to add a friend in response to a friend request. If the
+ * client receives a friend request, it can be reasonably sure that the other
+ * client added this client as a friend, eliminating the need for a friend
+ * request.
+ *
+ * This function is also useful in a situation where both instances are
+ * controlled by the same entity, so that this entity can perform the mutual
+ * friend adding. In this case, there is no need for a friend request, either.
+ *
+ * @param public_key A byte array of length TOX_PUBLIC_KEY_SIZE containing the
+ * Public Key (not the Address) of the friend to add.
+ *
+ * @return the friend number on success, UINT32_MAX on failure.
+ * @see tox_friend_add for a more detailed description of friend numbers.
+ *}
+function tox_friend_add_norequest(tox: TTox; public_key: pcuint8;
+                           error: PTOX_ERR_FRIEND_ADD): cuint32; TOXFUNC;
+
+
+type
+  TOX_ERR_FRIEND_DELETE =
+  (
+    {*
+     * Success.
+     *}
+    TOX_ERR_FRIEND_DELETE_OK,
+    {*
+     * There was no friend with the given friend number. No friends were deleted.
+     *}
+    TOX_ERR_FRIEND_DELETE_FRIEND_NOT_FOUND
+  );
+  PTOX_ERR_FRIEND_DELETE = ^TOX_ERR_FRIEND_DELETE;
+
+{*
+ * Remove a friend from the friend list.
+ *
+ * This does not notify the friend of their deletion. After calling this
+ * function, this client will appear offline to the friend and no communication
+ * can occur between the two.
+ *
+ * @param friend_number Friend number for the friend to be deleted.
+ *
+ * @return true on success.
+ *}
+
+function tox_friend_delete(tox: TTox; friend_number: cuint32;
+                           error: PTOX_ERR_FRIEND_DELETE): cbool; TOXFUNC;
+
+{******************************************************************************
+ *
+ * :: Friend list queries
+ *
+ ***************************************************************************** }
+
+type
+  TOX_ERR_FRIEND_BY_PUBLIC_KEY =
+  (
+    {*
+     * The function returned successfully.
+     *}
+    TOX_ERR_FRIEND_BY_PUBLIC_KEY_OK,
+    {*
+     * One of the arguments to the function was NULL when it was not expected.
+     *}
+    TOX_ERR_FRIEND_BY_PUBLIC_KEY_NULL,
+    {*
+     * No friend with the given Public Key exists on the friend list.
+     *}
+    TOX_ERR_FRIEND_BY_PUBLIC_KEY_NOT_FOUND
+  );
+  PTOX_ERR_FRIEND_BY_PUBLIC_KEY = ^TOX_ERR_FRIEND_BY_PUBLIC_KEY;
+
+{*
+ * Return the friend number associated with that Public Key.
+ *
+ * @return the friend number on success, UINT32_MAX on failure.
+ * @param public_key A byte array containing the Public Key.
+ *}
+
+function tox_friend_by_public_key(tox: TTox; public_key: pcuint8;
+                           error:PTOX_ERR_FRIEND_BY_PUBLIC_KEY): cuint32;
+                                                                 TOXFUNC;
+
+{*
+ * Checks if a friend with the given friend number exists and returns true if
+ * it does.
+  }
+function tox_friend_exists(tox: TTox; friend_number: cuint32): cbool; TOXFUNC;
+
+{*
+ * Return the number of friends on the friend list.
+ *
+ * This function can be used to determine how much memory to allocate for
+ * tox_self_get_friend_list.
+ *}
+function tox_self_get_friend_list_size(tox: TTox): csize_t; TOXFUNC;
+
+{*
+ * Copy a list of valid friend numbers into an array.
+ *
+ * Call tox_self_get_friend_list_size to determine the number of elements to allocate.
+ *
+ * @param list A memory region with enough space to hold the friend list. If
+ *   this parameter is NULL, this function has no effect.
+ *}
+procedure tox_self_get_friend_list(tox: TTox; friend_list: pcuint32); TOXFUNC;
+
+type
+  TOX_ERR_FRIEND_GET_PUBLIC_KEY =
+  (
+     {*
+      * The function returned successfully.
+      *}
+     TOX_ERR_FRIEND_GET_PUBLIC_KEY_OK,
+     {*
+      * No friend with the given number exists on the friend list.
+      *}
+     TOX_ERR_FRIEND_GET_PUBLIC_KEY_FRIEND_NOT_FOUND
+  );
+  PTOX_ERR_FRIEND_GET_PUBLIC_KEY = ^TOX_ERR_FRIEND_GET_PUBLIC_KEY;
+
+{*
+ * Copies the Public Key associated with a given friend number to a byte array.
+ *
+ * @param friend_number The friend number you want the Public Key of.
+ * @param public_key A memory region of at least TOX_PUBLIC_KEY_SIZE bytes. If
+ *   this parameter is NULL, this function has no effect.
+ *
+ * @return true on success.
+ *}
+function tox_friend_get_public_key(tox: TTox; friend_number: cuint32;
+                           public_key: pcuint8;
+                           error: PTOX_ERR_FRIEND_GET_PUBLIC_KEY): cbool;
+                                                                   TOXFUNC;
+
+type
+  TOX_ERR_FRIEND_GET_LAST_ONLINE =
+  (
+    {*
+     * The function returned successfully.
+     *}
+    TOX_ERR_FRIEND_GET_LAST_ONLINE_OK,
+    {*
+     * No friend with the given number exists on the friend list.
+     *}
+    TOX_ERR_FRIEND_GET_LAST_ONLINE_FRIEND_NOT_FOUND
+  );
+  PTOX_ERR_FRIEND_GET_LAST_ONLINE = ^TOX_ERR_FRIEND_GET_LAST_ONLINE;
+
+{*
+ * Return a unix-time timestamp of the last time the friend associated with a given
+ * friend number was seen online. This function will return UINT64_MAX on error.
+ *
+ * @param friend_number The friend number you want to query.
+ *}
+
+function tox_friend_get_last_online(tox: TTox; friend_number: uint32;
+                           error: PTOX_ERR_FRIEND_GET_LAST_ONLINE): cuint64;
+                                                                    TOXFUNC;
+
 implementation
 
 end.
