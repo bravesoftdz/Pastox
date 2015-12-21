@@ -35,7 +35,7 @@
         <PackageName Value="LCL"/>
       </Item2>
     </RequiredPackages>
-    <Units Count="4">
+    <Units Count="5">
       <Unit0>
         <Filename Value="Pastox.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -58,6 +58,11 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="ToxID"/>
       </Unit3>
+      <Unit4>
+        <Filename Value="Library/common/util.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Util"/>
+      </Unit4>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -67,7 +72,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir);Library/common"/>
-      <OtherUnitFiles Value="Library;Library/Locktox"/>
+      <OtherUnitFiles Value="Library;Library/Locktox;Library/common"/>
       <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

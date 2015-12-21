@@ -10,7 +10,7 @@
         <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
     </CompilerOptions>
-    <Files Count="3">
+    <Files Count="4">
       <Item1>
         <Filename Value="../common/toxdefs.inc"/>
         <Type Value="Include"/>
@@ -24,6 +24,10 @@
         <Filename Value="sodium.pas"/>
         <UnitName Value="Sodium"/>
       </Item3>
+      <Item4>
+        <Filename Value="crypt.pas"/>
+        <UnitName Value="crypt"/>
+      </Item4>
     </Files>
     <RequiredPkgs Count="1">
       <Item1>
